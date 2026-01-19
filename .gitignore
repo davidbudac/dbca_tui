@@ -9,9 +9,6 @@ dist/
 # Generated scripts
 dbca_*.sh
 
-# Go
-go.sum
-
 # IDE
 .idea/
 .vscode/
