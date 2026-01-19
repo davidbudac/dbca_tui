@@ -1,0 +1,23 @@
+# Binaries
+dbca_tui
+dbca_tui-*
+*.exe
+
+# Build output
+dist/
+
+# Generated scripts
+dbca_*.sh
+
+# Go
+go.sum
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
