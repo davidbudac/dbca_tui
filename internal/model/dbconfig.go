@@ -1,5 +1,13 @@
 package model
 
+// Operation represents the DBCA operation type
+type Operation string
+
+const (
+	OperationCreate Operation = "create"
+	OperationDelete Operation = "delete"
+)
+
 // CreationMode represents the database creation mode
 type CreationMode string
 
@@ -54,7 +62,10 @@ const (
 
 // DBConfig holds all database configuration options
 type DBConfig struct {
-	// Step 1: Creation Mode
+	// Operation type
+	Operation Operation
+
+	// Step 1: Creation Mode (for create operation)
 	CreationMode CreationMode
 
 	// Step 2: Deployment Type
@@ -122,11 +133,17 @@ type DBConfig struct {
 	RedoLogFileSize          int  // In MB
 	IgnorePreReqs            bool
 	InitParams               map[string]string
+
+	// Delete Operation Options
+	DeleteSID                string
+	DeleteForce              bool  // Force delete even if database is running
+	DeleteExpressMode        bool  // Express mode (no prompts)
 }
 
 // NewDBConfig creates a new DBConfig with sensible defaults
 func NewDBConfig() *DBConfig {
 	return &DBConfig{
+		Operation:            OperationCreate,
 		CreationMode:         CreationModeTypical,
 		DeploymentType:       DeploymentSingleInstance,
 		TemplateName:         TemplateGeneralPurpose,

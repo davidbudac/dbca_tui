@@ -244,6 +244,6 @@ func (s *DataVaultStep) Apply(config *model.DBConfig) {
 
 // ShouldSkip returns whether this step should be skipped
 func (s *DataVaultStep) ShouldSkip(config *model.DBConfig) bool {
-	// Only show in advanced mode
-	return config.CreationMode != model.CreationModeAdvanced
+	// Only show in advanced mode for create operation
+	return config.Operation != model.OperationCreate || config.CreationMode != model.CreationModeAdvanced
 }

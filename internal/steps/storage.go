@@ -317,5 +317,5 @@ func (s *StorageStep) Apply(config *model.DBConfig) {
 
 // ShouldSkip returns whether this step should be skipped
 func (s *StorageStep) ShouldSkip(config *model.DBConfig) bool {
-	return false
+	return config.Operation != model.OperationCreate
 }

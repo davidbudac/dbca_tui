@@ -322,5 +322,5 @@ func (s *CredentialsStep) Apply(config *model.DBConfig) {
 
 // ShouldSkip returns whether this step should be skipped
 func (s *CredentialsStep) ShouldSkip(config *model.DBConfig) bool {
-	return false
+	return config.Operation != model.OperationCreate
 }

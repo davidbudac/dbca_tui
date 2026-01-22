@@ -217,6 +217,6 @@ func (s *NetworkStep) Apply(config *model.DBConfig) {
 
 // ShouldSkip returns whether this step should be skipped
 func (s *NetworkStep) ShouldSkip(config *model.DBConfig) bool {
-	// Skip in typical mode
-	return config.CreationMode == model.CreationModeTypical
+	// Skip for delete operation or in typical mode
+	return config.Operation != model.OperationCreate || config.CreationMode == model.CreationModeTypical
 }

@@ -14,14 +14,14 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// RecoveryStep handles Fast Recovery Area configuration
+// RecoveryStep handles Fast Recovery Area and Archive Log configuration
 type RecoveryStep struct {
-	config         *model.DBConfig
-	inputs         []textinput.Model
-	focusIndex     int
-	enableFRA      bool
-	enableArchive  bool
-	err            string
+	config        *model.DBConfig
+	inputs        []textinput.Model
+	focusIndex    int
+	enableFRA     bool
+	enableArchive bool
+	err           string
 }
 
 const (
@@ -65,11 +65,7 @@ func (s *RecoveryStep) Init(config *model.DBConfig) tea.Cmd {
 		s.inputs[i].Blur()
 	}
 
-	if s.enableFRA {
-		s.inputs[0].Focus()
-	}
-
-	return textinput.Blink
+	return nil
 }
 
 // Update handles messages
@@ -82,11 +78,11 @@ func (s *RecoveryStep) Update(msg tea.Msg) (wizard.Step, wizard.StepResult, tea.
 
 		case "tab", "down":
 			s.nextField()
-			return s, wizard.StepStay, nil
+			return s, wizard.StepStay, textinput.Blink
 
 		case "shift+tab", "up":
 			s.prevField()
-			return s, wizard.StepStay, nil
+			return s, wizard.StepStay, textinput.Blink
 
 		case "enter":
 			if s.validate() {
@@ -94,32 +90,27 @@ func (s *RecoveryStep) Update(msg tea.Msg) (wizard.Step, wizard.StepResult, tea.
 			}
 			return s, wizard.StepStay, nil
 
-		case "f", "F":
-			// Toggle FRA
-			if s.focusIndex == 0 || !s.enableFRA {
-				s.enableFRA = !s.enableFRA
-				if s.enableFRA {
-					s.focusIndex = 1
-					s.inputs[recIdxFRADest].Focus()
-				} else {
-					for i := range s.inputs {
-						s.inputs[i].Blur()
-					}
-					s.focusIndex = 0
-				}
+		case "a", "A":
+			// Toggle archive log mode - always available
+			if s.focusIndex == 0 {
+				s.enableArchive = !s.enableArchive
 			}
 
-		case "a", "A":
-			// Toggle archive log mode
-			if s.enableFRA && (s.focusIndex == 3 || s.focusIndex == len(s.inputs)+1) {
-				s.enableArchive = !s.enableArchive
+		case "f", "F":
+			// Toggle FRA
+			if s.focusIndex == 1 {
+				s.enableFRA = !s.enableFRA
+				if s.enableFRA {
+					s.focusIndex = 2
+					s.inputs[recIdxFRADest].Focus()
+				}
 			}
 		}
 	}
 
 	// Update the focused text input
-	if s.enableFRA && s.focusIndex > 0 && s.focusIndex <= len(s.inputs) {
-		inputIdx := s.focusIndex - 1
+	if s.enableFRA && s.focusIndex >= 2 && s.focusIndex <= 3 {
+		inputIdx := s.focusIndex - 2
 		var cmd tea.Cmd
 		s.inputs[inputIdx], cmd = s.inputs[inputIdx].Update(msg)
 		return s, wizard.StepStay, cmd
@@ -129,13 +120,14 @@ func (s *RecoveryStep) Update(msg tea.Msg) (wizard.Step, wizard.StepResult, tea.
 }
 
 func (s *RecoveryStep) nextField() {
-	if s.focusIndex > 0 && s.focusIndex <= len(s.inputs) {
-		s.inputs[s.focusIndex-1].Blur()
+	// Blur current input if focused
+	if s.focusIndex >= 2 && s.focusIndex <= 3 {
+		s.inputs[s.focusIndex-2].Blur()
 	}
 
-	maxFields := 0 // FRA toggle
+	maxFields := 1 // Archive toggle + FRA toggle
 	if s.enableFRA {
-		maxFields = len(s.inputs) + 1 // inputs + archive toggle
+		maxFields = 3 // Archive + FRA toggle + 2 inputs
 	}
 
 	s.focusIndex++
@@ -143,19 +135,21 @@ func (s *RecoveryStep) nextField() {
 		s.focusIndex = 0
 	}
 
-	if s.focusIndex > 0 && s.focusIndex <= len(s.inputs) {
-		s.inputs[s.focusIndex-1].Focus()
+	// Focus new input if applicable
+	if s.focusIndex >= 2 && s.focusIndex <= 3 {
+		s.inputs[s.focusIndex-2].Focus()
 	}
 }
 
 func (s *RecoveryStep) prevField() {
-	if s.focusIndex > 0 && s.focusIndex <= len(s.inputs) {
-		s.inputs[s.focusIndex-1].Blur()
+	// Blur current input if focused
+	if s.focusIndex >= 2 && s.focusIndex <= 3 {
+		s.inputs[s.focusIndex-2].Blur()
 	}
 
-	maxFields := 0
+	maxFields := 1
 	if s.enableFRA {
-		maxFields = len(s.inputs) + 1
+		maxFields = 3
 	}
 
 	s.focusIndex--
@@ -163,8 +157,9 @@ func (s *RecoveryStep) prevField() {
 		s.focusIndex = maxFields
 	}
 
-	if s.focusIndex > 0 && s.focusIndex <= len(s.inputs) {
-		s.inputs[s.focusIndex-1].Focus()
+	// Focus new input if applicable
+	if s.focusIndex >= 2 && s.focusIndex <= 3 {
+		s.inputs[s.focusIndex-2].Focus()
 	}
 }
 
@@ -192,38 +187,49 @@ func (s *RecoveryStep) validate() bool {
 func (s *RecoveryStep) View() string {
 	var b strings.Builder
 
-	b.WriteString(ui.SubtitleStyle.Render("Configure Fast Recovery Area (FRA):") + "\n\n")
+	b.WriteString(ui.SubtitleStyle.Render("Configure Recovery and Archive Log Settings:") + "\n\n")
+
+	// Archive Log Mode toggle - PROMINENT at the top
+	archiveCheckbox := ui.UncheckedStyle.String()
+	if s.enableArchive {
+		archiveCheckbox = ui.CheckedStyle.String()
+	}
+	archiveStyle := ui.NormalItemStyle
+	if s.focusIndex == 0 {
+		archiveStyle = ui.SelectedItemStyle
+	}
+
+	archiveLabel := "Enable Archive Log Mode"
+	if s.enableArchive {
+		archiveLabel = "Enable Archive Log Mode (ARCHIVELOG)"
+	} else {
+		archiveLabel = "Enable Archive Log Mode (NOARCHIVELOG)"
+	}
+
+	b.WriteString(fmt.Sprintf("%s %s\n", archiveCheckbox, archiveStyle.Render(archiveLabel)))
+	b.WriteString(ui.SubtitleStyle.Render("    Press 'a' to toggle - Required for online backups and point-in-time recovery") + "\n\n")
+
+	// Separator
+	b.WriteString(lipgloss.NewStyle().Foreground(ui.MutedColor).Render("─────────────────────────────────────────") + "\n\n")
 
 	// Enable FRA toggle
-	checkbox := ui.UncheckedStyle.String()
+	fraCheckbox := ui.UncheckedStyle.String()
 	if s.enableFRA {
-		checkbox = ui.CheckedStyle.String()
+		fraCheckbox = ui.CheckedStyle.String()
 	}
 	fraStyle := ui.NormalItemStyle
-	if s.focusIndex == 0 {
+	if s.focusIndex == 1 {
 		fraStyle = ui.SelectedItemStyle
 	}
-	b.WriteString(fmt.Sprintf("%s %s\n", checkbox, fraStyle.Render("Enable Fast Recovery Area")))
-	b.WriteString(ui.SubtitleStyle.Render("    Press 'f' to toggle") + "\n\n")
+	b.WriteString(fmt.Sprintf("%s %s\n", fraCheckbox, fraStyle.Render("Enable Fast Recovery Area (FRA)")))
+	b.WriteString(ui.SubtitleStyle.Render("    Press 'f' to toggle - Stores backups, archive logs, and flashback logs") + "\n\n")
 
 	if s.enableFRA {
 		// FRA Destination
-		b.WriteString(s.renderField("FRA Location", s.inputs[recIdxFRADest], 1) + "\n")
+		b.WriteString(s.renderField("FRA Location", s.inputs[recIdxFRADest], 2) + "\n")
 
 		// FRA Size
-		b.WriteString(s.renderField("FRA Size (MB)", s.inputs[recIdxFRASize], 2) + "\n")
-
-		// Archive log toggle
-		archiveCheckbox := ui.UncheckedStyle.String()
-		if s.enableArchive {
-			archiveCheckbox = ui.CheckedStyle.String()
-		}
-		archiveStyle := ui.NormalItemStyle
-		if s.focusIndex == 3 {
-			archiveStyle = ui.SelectedItemStyle
-		}
-		b.WriteString(fmt.Sprintf("\n%s %s\n", archiveCheckbox, archiveStyle.Render("Enable Archive Log Mode")))
-		b.WriteString(ui.SubtitleStyle.Render("    Press 'a' to toggle") + "\n")
+		b.WriteString(s.renderField("FRA Size (MB)", s.inputs[recIdxFRASize], 3) + "\n")
 	}
 
 	if s.err != "" {
@@ -251,13 +257,13 @@ func (s *RecoveryStep) renderField(label string, input textinput.Model, fieldInd
 
 // Title returns the step title
 func (s *RecoveryStep) Title() string {
-	return "Fast Recovery Area"
+	return "Recovery & Archive Log"
 }
 
 // Apply applies the step's changes to the config
 func (s *RecoveryStep) Apply(config *model.DBConfig) {
-	config.EnableFRA = s.enableFRA
 	config.EnableArchiveLog = s.enableArchive
+	config.EnableFRA = s.enableFRA
 
 	if s.enableFRA {
 		config.FRADestination = strings.TrimSpace(s.inputs[recIdxFRADest].Value())
@@ -268,5 +274,5 @@ func (s *RecoveryStep) Apply(config *model.DBConfig) {
 
 // ShouldSkip returns whether this step should be skipped
 func (s *RecoveryStep) ShouldSkip(config *model.DBConfig) bool {
-	return false
+	return config.Operation != model.OperationCreate
 }

@@ -101,5 +101,5 @@ func (s *TemplateStep) Apply(config *model.DBConfig) {
 
 // ShouldSkip returns whether this step should be skipped
 func (s *TemplateStep) ShouldSkip(config *model.DBConfig) bool {
-	return false
+	return config.Operation != model.OperationCreate
 }
